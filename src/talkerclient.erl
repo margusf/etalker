@@ -19,19 +19,19 @@ connect(Nick) ->
     spawn(fun() -> do_login(Nick, Self) end).
 
 controlling_process(Client, Pid) ->
-    none.
+    Client ! {self(), controlling_process, Pid}.
 
 join(Client, Channel) ->
-    none.
+    Client ! {self(), join, Channel}.
 
 leave(Client, Channel) ->
-    none.
+    Client ! {self(), leave, Channel}.
 
 send(Client, Channel, Message) ->
-    none.
+    Client ! {self(), send, Channel, Message}.
 
 shutdown(Client) ->
-    none.
+    exit(Client, shutdown).
 
 % Implementation stuff
 
@@ -39,7 +39,20 @@ do_login(Nick, Control) ->
     talker_server ! {login, Nick},
     receive
         {Server, login_ok} ->
-            Control ! {talker, connected};
-        {Server, login_failed, Message} ->
+            Control ! {talker, connected},
+            do_loop(Server, Control);
+        {_Server, login_failed, Message} ->
             Control ! {talker, login_failed, Message}
+    end.
+
+do_loop(Server, Control) ->
+    receive
+        {Control, controlling_process, NewPid} ->
+            do_loop(Server, NewPid);
+        {Control, join, Channel} ->
+            Server ! {join, Channel },
+            do_loop(Server, Control);
+        {Control, leave, Channel} ->
+            Server ! {leave, Channel},
+            do_loop(Server, Control)
     end.
