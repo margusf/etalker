@@ -36,9 +36,11 @@ shutdown(Client) ->
 % Implementation stuff
 
 do_login(Nick, Control) ->
-    talker_server ! {login, Nick},
+    talker_server ! {self(), login, Nick},
+    io:format("Sent login to server~n"),
     receive
         {Server, login_ok} ->
+            io:format("Login ok~n"),
             Control ! {talker, connected},
             do_loop(Server, Control);
         {_Server, login_failed, Message} ->
@@ -50,9 +52,9 @@ do_loop(Server, Control) ->
         {Control, controlling_process, NewPid} ->
             do_loop(Server, NewPid);
         {Control, join, Channel} ->
-            Server ! {join, Channel },
+            Server ! {self(), join, Channel },
             do_loop(Server, Control);
         {Control, leave, Channel} ->
-            Server ! {leave, Channel},
+            Server ! {self(), leave, Channel},
             do_loop(Server, Control)
     end.
