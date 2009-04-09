@@ -1,22 +1,24 @@
 -module(client).
 
--export([main/1]).
+-export([main/1, main/2]).
 
 main(Nick) ->
-    Listener = spawn(fun() -> print_messages() end),
-    Client = talkerclient:connect(Nick, Listener),
-    run_loop(Client, none).
+    main(Nick, node()).
+
+main(Nick, ServerNode) ->
+    Listener = spawn_link(fun() -> print_messages() end),
+    Client = talkerclient:connect(Nick, ServerNode, Listener),
+    run_loop(Client, "none").
 
 run_loop(Client, Channel) ->
-    case io:get_line("irc> ") of
+    case io:get_line(Channel ++ "> ") of
         eof -> done;
-        Str -> io:format("got string: '~s'~n", [Str]),
-               process_line(string:strip(Str, right), Client, Channel)
+        Str -> process_line(string:strip(Str, right, $\n), Client, Channel)
     end.
 
 print_messages() ->
     receive
-        F -> io:format("IRC: ~s~n", [F])
+        F -> io:format("IRC: ~p~n", [F])
     end,
     print_messages().
 
@@ -31,6 +33,8 @@ process_line([$/ | Rest], Client, Channel) ->
             run_loop(Client, Channel);
         ["chan", SelectChan] ->
             run_loop(Client, SelectChan);
+        ["q"] ->
+            talkerclient:shutdown(Client);
             
         [Command | _] ->
             io:format("Invalid command: ~s~n", [Command]),

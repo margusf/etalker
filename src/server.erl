@@ -3,7 +3,7 @@
 -export([start/0]).
 
 start() ->
-    io:format("starting server~n"),
+    log("START", []),
     register(talker_server,
              spawn(fun() -> init_tables(),
                             loop() end)).
@@ -14,22 +14,23 @@ loop() ->
     io:format("server loop~n"),
     receive
         {Pid, login, Nick} ->
-            io:format("Login request from ~s~n", [Nick]),
+            log("LOGIN: nick ~s", [Nick]),
             Pid ! {self(), login_ok},
             add_nick(Pid, Nick),
             loop();
         {Pid, join, Channel} ->
             Nick = get_nick(Pid),
-            io:format("~s joins channel ~s~n", [Nick, Channel]),
-            send_channel(Channel, Nick ++ " joins channel"),
+            log("JOIN: chan ~s, nick ~s", [Channel, Nick]),
+            send_channel(Channel, Nick, "joins"),
             join_channel(Pid, Channel),
             loop();
         {Pid, send, Channel, Message} ->
             Nick = get_nick(Pid),
-            send_channel(Channel, Nick ++ " " ++ Message),
+            log("SEND: chan ~s, nick ~s, msg ~s", [Channel, Nick, Message]),
+            send_channel(Channel, Nick, Message),
             loop();
         Other ->
-            io:format("Received other: ~p~n", [Other]),
+            log("UNKNOWN MSG: ~p", [Other]),
             loop()
     end.
 
@@ -49,8 +50,14 @@ get_nick(Pid) ->
 join_channel(Pid, Channel) ->
     ets:insert(chanlist, {Channel, Pid}).
 
-send_channel(Channel, Message) ->
+send_channel(Channel, Nick, Message) ->
     Members = ets:lookup(chanlist, Channel),
     lists:foreach(fun({_Chan, Pid}) ->
-                          Pid ! {channel_msg, Channel, Message} end,
+                          log("SEND TO: pid ~p, nick ~s",
+                              [Pid, get_nick(Pid)]),
+                          Pid ! {self(), channel_msg, Channel, Nick, Message}
+                  end,
                   Members).
+
+log(Str, Arg) ->
+    io:format("SRV: " ++ Str ++ "~n", Arg).

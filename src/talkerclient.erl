@@ -1,25 +1,24 @@
 -module(talkerclient).
 
--export([connect/1,
-         connect/2,
+-export([connect/2,
+         connect/3,
          controlling_process/2,
          join/2,
          leave/2,
          send/3,
          shutdown/1]).
 
-% TODO: hostname argument
 % After login, controlling process will receive update messages:
 % {talker, connected}
 % {talker, login_failed, message}
 % {talker, msg, nick, message}
 % {talker, event, nick, message}
 % {talker, shutdown}
-connect(Nick) ->
-    connect(Nick, self()).
+connect(Nick, ServerNode) ->
+    connect(Nick, ServerNode, self()).
 
-connect(Nick, Control) ->
-    Pid = spawn(fun() -> do_login(Nick, Control) end),
+connect(Nick, ServerNode, Control) ->
+    Pid = spawn_link(fun() -> do_login(Nick, ServerNode, Control) end),
     io:format("talkerclient ~p: spawned worker ~p for nick ~p~n",
               [Control, Pid, Nick]),
     Pid.
@@ -41,8 +40,8 @@ shutdown(Client) ->
 
 % Implementation stuff
 
-do_login(Nick, Control) ->
-    talker_server ! {self(), login, Nick},
+do_login(Nick, ServerNode, Control) ->
+    {talker_server, ServerNode} ! {self(), login, Nick},
     io:format("Sent login to server~n"),
     receive
         {Server, login_ok} ->
@@ -69,6 +68,7 @@ do_loop(Server, Control) ->
             do_loop(Server, Control);
 
         % Messages from server.
-        {Server, channel_msg, Message} ->
-            Control ! {talker, channel_msg, Message}
+        {Server, channel_msg, Channel, Nick, Message} ->
+            Control ! {talker, channel_msg, Channel, Nick, Message},
+            do_loop(Server, Control)
     end.
