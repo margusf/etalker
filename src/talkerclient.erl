@@ -1,6 +1,7 @@
 -module(talkerclient).
 
 -export([connect/1,
+         connect/2,
          controlling_process/2,
          join/2,
          leave/2,
@@ -15,8 +16,13 @@
 % {talker, event, nick, message}
 % {talker, shutdown}
 connect(Nick) ->
-    Self = self(),
-    spawn(fun() -> do_login(Nick, Self) end).
+    connect(Nick, self()).
+
+connect(Nick, Control) ->
+    Pid = spawn(fun() -> do_login(Nick, Control) end),
+    io:format("talkerclient ~p: spawned worker ~p for nick ~p~n",
+              [Control, Pid, Nick]),
+    Pid.
 
 controlling_process(Client, Pid) ->
     Client ! {self(), controlling_process, Pid}.
@@ -50,11 +56,19 @@ do_login(Nick, Control) ->
 do_loop(Server, Control) ->
     receive
         {Control, controlling_process, NewPid} ->
+            io:format("New controlling process: ~p~n", [NewPid]),
             do_loop(Server, NewPid);
-        {Control, join, Channel} ->
+        {_Pid, join, Channel} ->
             Server ! {self(), join, Channel },
             do_loop(Server, Control);
-        {Control, leave, Channel} ->
+        {_Pid, leave, Channel} ->
             Server ! {self(), leave, Channel},
-            do_loop(Server, Control)
+            do_loop(Server, Control);
+        {_Pid, send, Channel, Message} ->
+            Server ! {self(), send, Channel, Message},
+            do_loop(Server, Control);
+
+        % Messages from server.
+        {Server, channel_msg, Message} ->
+            Control ! {talker, channel_msg, Message}
     end.
