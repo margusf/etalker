@@ -1,0 +1,11 @@
+* Moodultestid
+* leave channel
+* who
+* private msg
+* emote
+* Kliendi arakukkumine
+* fail-safe
+* Code hot-swap
+* Kasutada OTP vahendeid
+* real protocol
+* Bot

@@ -30,9 +30,16 @@ process_line([$/ | Rest], Client, Channel) ->
     case Parts of
         ["join", JoinChan] ->
             talkerclient:join(Client, JoinChan),
-            run_loop(Client, Channel);
+            run_loop(Client, JoinChan);
         ["chan", SelectChan] ->
             run_loop(Client, SelectChan);
+        ["leave"] ->
+            talkerclient:leave(Client, Channel),
+            run_loop(Client, "none");
+        ["leave", LeaveChan] ->
+            talkerclient:leave(Client, LeaveChan),
+            run_loop(Client, Channel);
+
         ["q"] ->
             talkerclient:shutdown(Client);
             
